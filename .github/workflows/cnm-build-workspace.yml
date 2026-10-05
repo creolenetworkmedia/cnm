@@ -27,7 +27,7 @@ jobs:
           fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');
           console.log(p.devDependencies);
           JS
-          npm install --no-fund
+          npx --yes npm@11.6.0 install --no-fund
       - name: Capture dependency audit
         if: always()
         run: npm audit --json > dependency-audit.json || true
