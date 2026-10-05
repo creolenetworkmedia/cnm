@@ -41,3 +41,8 @@ The build also copies `index.html` to `404.html` so client-side article URLs wor
 The repository includes a GitHub Pages deployment workflow and `public/CNAME` for `creolenetworkmedia.com`.
 
 After the repository's Pages source is set to **GitHub Actions**, configure the domain DNS for GitHub Pages. The workflow publishes each push to `main`.
+
+
+## Deployment status
+
+GitHub Pages is enabled and deployments are handled by GitHub Actions from `main`.
