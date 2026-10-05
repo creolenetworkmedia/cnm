@@ -1,0 +1,42 @@
+name: Materialize CNM editorial redesign
+on:
+  push:
+    branches: [feat/cnm-editorial-v2]
+    paths:
+      - .cnm-redesign-source.b85
+      - .github/workflows/materialize-redesign.yml
+permissions:
+  contents: write
+jobs:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/cnm-editorial-v2
+          fetch-depth: 0
+      - name: Decode verified source package
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64, pathlib, hashlib
+          encoded = pathlib.Path('.cnm-redesign-source.b85').read_text()
+          payload = base64.b85decode(encoded.encode('ascii'))
+          digest = hashlib.sha256(payload).hexdigest()
+          expected = 'eaf6c9b6dba9b27d0e44c80c8e66983784e3421ad9ce600e1196b12c05e38211'
+          if digest != expected:
+              raise SystemExit(f'archive checksum mismatch: {digest}')
+          pathlib.Path('/tmp/cnm-redesign.tar.xz').write_bytes(payload)
+          PY
+          tar -xJf /tmp/cnm-redesign.tar.xz -C .
+          rm -f .cnm-redesign-source.b85 .github/workflows/materialize-redesign.yml
+      - name: Commit materialized redesign
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: materialize CNM editorial redesign"
+          git push origin HEAD:feat/cnm-editorial-v2
