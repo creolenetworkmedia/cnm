@@ -1,0 +1,38 @@
+name: CNM isolated test workspace
+on:
+  push:
+    branches: [feat/cnm-editorial-redesign]
+    paths: [.github/workflows/cnm-workspace.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Verify current application build
+        run: |
+          npm install --no-fund
+          npm run build
+      - name: Resolve isolated test dependencies
+        run: |
+          npm install --save-dev --save-exact vitest@4 @testing-library/react@16 @testing-library/jest-dom@6 jsdom@26 @playwright/test@1 @axe-core/playwright@4 --no-fund
+          npm audit --json > dependency-audit.json || true
+      - name: Package tracked source and isolated dependencies
+        run: |
+          git archive HEAD -o /tmp/cnm-source.tar
+          tar -czf /tmp/cnm-dependencies.tar.gz node_modules package-lock.json package.json dependency-audit.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cnm-isolated-workspace
+          path: |
+            /tmp/cnm-source.tar
+            /tmp/cnm-dependencies.tar.gz
+          retention-days: 3
