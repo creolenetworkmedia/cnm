@@ -59,7 +59,7 @@ type Route =
 const localeOrder: Locale[] = ['en', 'fr', 'ht', 'es']
 const projectBase = typeof window !== 'undefined' && window.location.hostname.endsWith('github.io') ? '/cnm' : ''
 const withBase = (path: string) => `${projectBase}${path.startsWith('/') ? path : `/${path}`}`
-const assetPath = (name: string) => withBase(`/${name.replace(/^\\//, '')}`)
+const assetPath = (name: string) => withBase('/' + name.split('/').filter(Boolean).join('/'))
 
 const dayNames: Record<Locale, string[]> = {
   en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
