@@ -34,7 +34,7 @@ jobs:
           node-version: '22.16.0'
       - name: Resolve test tooling and local SQL harness
         run: |
-          npm install --save-dev --save-exact vitest@4 @testing-library/react@16 @testing-library/jest-dom@6 jsdom@26 @playwright/test@1 @axe-core/playwright@4 @electric-sql/pglite@0.3 --no-audit --no-fund
+          npx --yes npm@11.6.2 install --save-dev --save-exact vitest@4 @testing-library/react@16 @testing-library/jest-dom@6 jsdom@26 @playwright/test@1 @axe-core/playwright@4 @electric-sql/pglite@0.3 --no-audit --no-fund
           npm audit --json > dependency-audit.json || true
           tar -czf /tmp/cnm-dependencies.tar.gz node_modules package-lock.json package.json dependency-audit.json
       - uses: actions/upload-artifact@v4
