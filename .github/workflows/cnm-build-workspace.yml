@@ -31,6 +31,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Capture desktop and mobile
         shell: bash
+        env:
+          CNM_DEPLOY_TARGET: pages
         run: |
           npx vite preview --host 127.0.0.1 --port 4173 > /tmp/cnm-vite.log 2>&1 &
           VITE_PID=$!
@@ -39,6 +41,7 @@ jobs:
             if curl -fsS http://127.0.0.1:4173/cnm/ >/dev/null; then break; fi
             sleep 1
           done
+          curl -fsS http://127.0.0.1:4173/cnm/ >/dev/null
           mkdir -p visual
           node --input-type=module <<'JS'
           import { chromium } from '@playwright/test'
@@ -55,7 +58,20 @@ jobs:
               deviceScaleFactor:1
             })
             const page = await context.newPage()
-            await page.goto('http://127.0.0.1:4173/cnm/', {waitUntil:'networkidle', timeout:30000})
+            const errors = []
+            page.on('pageerror', error => errors.push(String(error)))
+            page.on('console', message => {
+              if (message.type() === 'error') errors.push(message.text())
+            })
+            const response = await page.goto('http://127.0.0.1:4173/cnm/', {waitUntil:'domcontentloaded', timeout:30000})
+            if (!response || !response.ok()) throw new Error('CNM preview navigation failed')
+            await page.locator('[data-cnm-design="editorial-v2"]').waitFor({state:'visible', timeout:20000})
+            await page.locator('header').waitFor({state:'visible', timeout:20000})
+            const text = (await page.locator('body').innerText()).trim()
+            if (text.length < 80) throw new Error('CNM preview rendered insufficient visible content')
+            if (errors.some(error => !/AbortError|signal is aborted/i.test(error))) {
+              throw new Error('CNM preview browser errors: '+errors.join(' | '))
+            }
             await page.screenshot({path:'visual/'+name,fullPage:true})
             await context.close()
           }
