@@ -1,0 +1,3 @@
+import fs from 'node:fs';import path from 'node:path';
+const pairs=[['src/shared/locale.ts','shared/locale.ts'],['src/shared/media/video.ts','shared/media/video.ts'],['src/shared/contracts/forms.ts','shared/contracts/forms.ts'],['src/shared/contracts/submission.ts','shared/contracts/submission.ts']];
+for(const [source,destination] of pairs){const target=path.join('supabase/functions/cnm-web-v2',destination);fs.mkdirSync(path.dirname(target),{recursive:true});const text=fs.readFileSync(source,'utf8').replace(/from '(\.\.?\/[^']+)'/g,(_all,spec)=>`from '${spec}.ts'`);fs.writeFileSync(target,text)}

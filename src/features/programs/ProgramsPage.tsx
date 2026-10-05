@@ -1,0 +1,5 @@
+import {useLocale} from '../../shared/i18n'
+import {localized} from '../../i18n'
+import {dayLabel,type Slot} from './programs.model'
+import {SiteLink} from '../../app/router'
+export function ProgramsPage({programs}:{programs:Slot[]}){const {locale,t}=useLocale();return <div className="container standard-page"><header className="page-heading"><span className="eyebrow">CNM RADIO</span><h1>{t('programs')}</h1><p>{t('programsIntro')}</p></header>{programs.length?<div className="program-schedule">{[0,1,2,3,4,5,6].map(day=>{const slots=programs.filter(s=>s.day_of_week===day);return slots.length?<section key={day}><h2>{dayLabel(day,locale)}</h2>{slots.map(s=><div className="program-row" key={s.id}><div><time>{s.start_time.slice(0,5)}</time><small>{s.timezone}</small></div><div><h3>{s.show?.title}</h3><p>{localized(s.show?.description_i18n,locale)}</p></div><span>{s.duration_minutes} min</span></div>)}</section>:null})}</div>:<section className="empty-editorial"><p>{t('programsEmpty')}</p><SiteLink to="/listen" className="text-link">{t('listenLive')} {'\u2192'}</SiteLink></section>}</div>}

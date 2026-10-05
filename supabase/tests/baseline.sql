@@ -1,0 +1,36 @@
+-- Non-production schema fixture. Never imports or creates real CNM accounts.
+create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
+create schema auth; create schema private; create schema storage;
+create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+create table auth.users(id uuid primary key,email text);
+create table private.user_roles(user_id uuid primary key references auth.users,role text not null);
+create function private.is_admin() returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from private.user_roles where user_id=(select auth.uid()) and role in('admin','super_admin'))$$;
+create function private.is_staff() returns boolean language sql stable security definer set search_path='' as $$select exists(select 1 from private.user_roles where user_id=(select auth.uid()) and role in('editor','admin','super_admin'))$$;
+create table public.article_categories(id uuid primary key default gen_random_uuid(),slug text unique,name_i18n jsonb default '{}');
+create table public.media_assets(id uuid primary key default gen_random_uuid(),kind text not null default 'image',bucket text not null,original_path text not null,tiny_path text,small_path text,medium_path text,large_path text,alt_i18n jsonb not null default '{}',width int,height int,original_bytes bigint,placeholder text,status text default 'processing',is_public boolean default true,created_by uuid references auth.users,created_at timestamptz default now(),updated_at timestamptz default now());
+create table public.articles(id uuid primary key default gen_random_uuid(),slug text not null unique,category_id uuid references public.article_categories,title_i18n jsonb not null default '{}',excerpt_i18n jsonb not null default '{}',body_i18n jsonb not null default '{}',hero_media_id uuid references public.media_assets,author_user_id uuid references auth.users,status text default 'draft',scheduled_for timestamptz,published_at timestamptz,created_at timestamptz default now(),updated_at timestamptz default now());
+create table public.article_submissions(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users,language text not null,title text not null,body text not null,attachment_media_id uuid references public.media_assets,status text default 'pending',submitter_name text,submitter_email text,source text default 'app',created_at timestamptz default now(),updated_at timestamptz default now());
+create table public.song_requests(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users,requester_name text,requester_email text,language text,song_title text,artist text,message text,status text default 'pending',created_at timestamptz default now(),updated_at timestamptz default now());
+create table public.dedications(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users,sender_name text,sender_email text,recipient_name text,language text,message text,song_title text,artist text,status text default 'pending',created_at timestamptz default now(),updated_at timestamptz default now());
+create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text);
+alter table public.articles enable row level security;
+alter table public.media_assets enable row level security;
+alter table public.article_submissions enable row level security;
+alter table public.song_requests enable row level security;
+alter table public.dedications enable row level security;
+create policy articles_public on public.articles for select using(status='published' and published_at<=now());
+create policy articles_admin on public.articles to authenticated using((select private.is_admin())) with check((select private.is_admin()));
+create policy media_assets_public_select on public.media_assets for select using(is_public and status='ready');
+create policy media_assets_staff_manage on public.media_assets to authenticated using((select private.is_staff())) with check((select private.is_staff()));
+create policy article_submissions_own_insert on public.article_submissions for insert to authenticated with check(user_id=(select auth.uid()) and status='pending');
+create policy article_submissions_own_select on public.article_submissions for select to authenticated using(user_id=(select auth.uid()));
+create policy article_submissions_staff_select on public.article_submissions for select to authenticated using((select private.is_staff()));
+create policy article_submissions_staff_update on public.article_submissions for update to authenticated using((select private.is_staff())) with check((select private.is_staff()));
+create policy song_requests_own_insert on public.song_requests for insert to authenticated with check(user_id=(select auth.uid()) and status='pending');
+create policy dedications_own_insert on public.dedications for insert to authenticated with check(user_id=(select auth.uid()) and status='pending');
+grant usage on schema public,auth,private,storage to anon,authenticated,service_role;
+grant select,insert,update,delete on all tables in schema public to authenticated,service_role;
+grant select on public.articles,public.media_assets to anon;
+
+create table public.station_config(singleton boolean primary key default true,primary_stream_url text,low_data_stream_url text,stream_enabled boolean default false,donation_url text,updated_at timestamptz default now());
+insert into public.station_config(singleton) values(true);

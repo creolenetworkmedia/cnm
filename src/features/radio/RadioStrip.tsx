@@ -1,0 +1,7 @@
+import {useRadio} from './RadioProvider'
+import {useLocale} from '../../shared/i18n'
+import {SiteLink} from '../../app/router'
+import {Icon} from '../../design/Icon'
+export function RadioButton({large=false}:{large?:boolean}){const r=useRadio(),{t}=useLocale(),active=r.state==='playing'||r.state==='connecting';return <button type="button" className={'radio-button'+(large?' radio-button-large':'')} disabled={!r.streamAvailable} onClick={active?r.pause:r.state==='failed'?r.retry:r.play} aria-label={active?t('pause'):t('listenLive')}><Icon name={active?'pause':'play'} size={large?36:19}/></button>}
+export function RadioStrip(){const r=useRadio(),{t}=useLocale();return <div className="radio-strip"><div className="container radio-strip-inner"><RadioButton/><div className="strip-station"><strong>CNM RADIO</strong><span className={'broadcast-status '+(r.state==='playing'?'is-playing':'')} role="status">{r.state==='off-air'?t('offAir'):t(r.state)}</span></div><p>{r.state==='off-air'?t('unavailable'):t('noAccountListen')}</p><SiteLink to="/listen" className="strip-link">{t('openPlayer')}<Icon name="arrow" size={18}/></SiteLink></div></div>}
+export function MiniPlayer(){const r=useRadio(),{t}=useLocale();if(!r.engaged)return null;return <div className="mini-player"><RadioButton/><div><strong>CNM RADIO</strong><span role="status">{t(r.state==='off-air'?'offAir':r.state)}</span></div><SiteLink to="/listen" aria-label={t('openPlayer')}><Icon name="arrow"/></SiteLink></div>}
