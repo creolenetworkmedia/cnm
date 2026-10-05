@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: cnm-workspace
+  cancel-in-progress: true
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -14,25 +17,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: Package source for isolated local tests
+        run: |
+          git archive HEAD -o /tmp/cnm-source.tar
+          git bundle create /tmp/cnm-source.bundle --all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cnm-source
+          path: |
+            /tmp/cnm-source.tar
+            /tmp/cnm-source.bundle
+          retention-days: 3
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Verify current application build
+      - name: Resolve test tooling and local SQL harness
         run: |
-          npm install --no-fund
-          npm run build
-      - name: Resolve isolated test dependencies
-        run: |
-          npm install --save-dev --save-exact vitest@4 @testing-library/react@16 @testing-library/jest-dom@6 jsdom@26 @playwright/test@1 @axe-core/playwright@4 --no-fund
+          npm install --save-dev --save-exact vitest@4 @testing-library/react@16 @testing-library/jest-dom@6 jsdom@26 @playwright/test@1 @axe-core/playwright@4 @electric-sql/pglite@0.3 --no-audit --no-fund
           npm audit --json > dependency-audit.json || true
-      - name: Package tracked source and isolated dependencies
-        run: |
-          git archive HEAD -o /tmp/cnm-source.tar
           tar -czf /tmp/cnm-dependencies.tar.gz node_modules package-lock.json package.json dependency-audit.json
       - uses: actions/upload-artifact@v4
         with:
-          name: cnm-isolated-workspace
-          path: |
-            /tmp/cnm-source.tar
-            /tmp/cnm-dependencies.tar.gz
+          name: cnm-dependencies
+          path: /tmp/cnm-dependencies.tar.gz
           retention-days: 3
