@@ -1,46 +1,70 @@
-name: CNM isolated build workspace
+name: CNM editorial v2 validation
 on:
   push:
     branches: [feat/cnm-editorial-v2]
-    paths: [.github/workflows/cnm-build-workspace.yml]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  baseline:
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Resolve exact test tools before one clean install
+          cache: npm
+      - name: Install with npm 11
+        run: npx --yes npm@11.6.0 ci --no-fund
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Node contract tests
+        run: npm run test:node
+      - name: Production build
+        env:
+          CNM_DEPLOY_TARGET: pages
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture desktop and mobile
+        shell: bash
         run: |
+          npx vite preview --host 127.0.0.1 --port 4173 > /tmp/cnm-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill $VITE_PID || true' EXIT
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:4173/cnm/ >/dev/null; then break; fi
+            sleep 1
+          done
+          mkdir -p visual
           node --input-type=module <<'JS'
-          import fs from 'node:fs';import {execFileSync} from 'node:child_process';
-          const p=JSON.parse(fs.readFileSync('package.json','utf8'));
-          const tools={vitest:'4','@testing-library/react':'16','@testing-library/jest-dom':'6',jsdom:'26','@playwright/test':'1','@axe-core/playwright':'4'};
-          for(const [name,major] of Object.entries(tools)){
-            const v=JSON.parse(execFileSync('npm',['view',name+'@'+major,'version','--json'],{encoding:'utf8'}));
-            p.devDependencies[name]=Array.isArray(v)?v.at(-1):v;
+          import { chromium } from '@playwright/test'
+          const browser = await chromium.launch({headless:true})
+          const shots = [
+            ['cnm-editorial-v2-desktop.png', 1440, 1100, false],
+            ['cnm-editorial-v2-mobile.png', 390, 844, true],
+          ]
+          for (const [name,width,height,mobile] of shots) {
+            const context = await browser.newContext({
+              viewport:{width,height},
+              isMobile:mobile,
+              hasTouch:mobile,
+              deviceScaleFactor:1
+            })
+            const page = await context.newPage()
+            await page.goto('http://127.0.0.1:4173/cnm/', {waitUntil:'networkidle', timeout:30000})
+            await page.screenshot({path:'visual/'+name,fullPage:true})
+            await context.close()
           }
-          fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');
-          console.log(p.devDependencies);
+          await browser.close()
           JS
-          npx --yes npm@11.6.0 install --no-fund
-      - name: Capture dependency audit
-        if: always()
-        run: npm audit --json > dependency-audit.json || true
-      - name: Export source and dependencies (no credentials)
-        if: success()
-        run: |
-          git archive --format=tar HEAD > source.tar
-          tar -czf dependencies.tgz node_modules package.json package-lock.json dependency-audit.json
       - uses: actions/upload-artifact@v4
-        if: success()
         with:
-          name: cnm-build-workspace
+          name: cnm-editorial-v2-preview
           path: |
-            source.tar
-            dependencies.tgz
-          retention-days: 1
+            visual/*.png
+            dist/
+          retention-days: 3
