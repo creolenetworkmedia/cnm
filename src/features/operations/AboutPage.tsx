@@ -1,0 +1,4 @@
+import {useLocale} from '../../shared/i18n'
+import {Brand} from '../../design/Brand'
+import {SiteLink} from '../../app/router'
+export function AboutPage(){const {t}=useLocale();return <div className="container standard-page about-page"><header className="page-heading"><span className="eyebrow">{t('about')}</span><h1>Creole Network Media</h1><p>{t('aboutBody')}</p></header><div className="about-brand-panel"><Brand/><span>{t('radioNewsCulture')}</span></div><div className="about-columns">{[['aboutRadio','aboutRadioBody','/listen'],['aboutNews','aboutNewsBody','/news'],['aboutCulture','aboutCultureBody','/watch'],['aboutCommunity','aboutCommunityBody','/community']].map(([head,body,to])=><section key={head}><h2><SiteLink to={to}>{t(head)}</SiteLink></h2><p>{t(body)}</p></section>)}</div><SiteLink to="/contact" className="text-link">{t('contactCnm')} {'\u2192'}</SiteLink></div>}

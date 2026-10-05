@@ -1,0 +1,30 @@
+import {useEffect,useState,type FormEvent} from 'react'
+import {supabase} from '../../supabase'
+import {getSiteConfig} from '../../app/config'
+import {toSitePath} from '../../app/paths'
+import {useLocale,localeNames,localeOrder} from '../../shared/i18n'
+import {useAuth} from './AuthProvider'
+import {Field} from '../../design/Field'
+import {Brand} from '../../design/Brand'
+import {SiteLink} from '../../app/router'
+import {useRadio,type DataSaverMode} from '../radio/RadioProvider'
+export function AccountPage(){
+ const {session,isAdmin,loading,recovery,clearRecovery}=useAuth(),{t,locale,setLocale}=useLocale(),radio=useRadio()
+ const [mode,setMode]=useState<'signin'|'signup'|'reset'>('signin'),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[name,setName]=useState(''),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[failed,setFailed]=useState(false)
+ useEffect(()=>{let active=true;if(session)supabase.from('profiles').select('display_name').eq('user_id',session.user.id).maybeSingle().then(({data})=>{if(active)setName(data?.display_name||'')});return()=>{active=false}},[session?.user.id])
+ const submit=async(e:FormEvent)=>{
+  e.preventDefault();if(busy)return;setBusy(true);setNotice('');setFailed(false)
+  try{
+   const {base}=getSiteConfig(),redirect=window.location.origin+toSitePath('/account',base)
+   if(session&&recovery){const {error}=await supabase.auth.updateUser({password});if(error)throw error;setPassword('');setNotice('passwordUpdated');clearRecovery()}
+   else if(session){const {error}=await supabase.from('profiles').upsert({user_id:session.user.id,display_name:name.trim(),preferred_language:locale,data_saver_mode:radio.dataSaver});if(error)throw error;setNotice('saved')}
+   else if(mode==='signin'){const {error}=await supabase.auth.signInWithPassword({email:email.trim(),password});if(error)throw error}
+   else if(mode==='signup'){const {error}=await supabase.auth.signUp({email:email.trim(),password,options:{data:{display_name:name.trim(),preferred_language:locale},emailRedirectTo:redirect}});if(error)throw error;setNotice('checkEmail')}
+   else {const {error}=await supabase.auth.resetPasswordForEmail(email.trim(),{redirectTo:redirect});if(error)throw error;setNotice('resetSent')}
+  }catch{setFailed(true);setNotice('formError')}finally{setBusy(false)}
+ }
+ if(loading)return <div className="container standard-page" role="status">{t('loading')}{'\u2026'}</div>
+ if(session&&recovery)return <div className="container standard-page"><h1>{t('passwordReset')}</h1><form className="native-form auth-form" onSubmit={submit}><Field label={t('newPassword')} type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={8} maxLength={128} autoComplete="new-password" required/>{notice&&<p role={failed?'alert':'status'}>{t(notice)}</p>}<button className="button" disabled={busy}>{t(busy?'saving':'save')}</button></form></div>
+ if(session)return <div className="container standard-page account-page"><header className="page-heading"><span className="eyebrow">CNM</span><h1>{t('profileTitle')}</h1></header><div className="account-grid"><aside><Brand/><p>{session.user.email}</p>{isAdmin&&<SiteLink to="/admin" className="button">{t('admin')}</SiteLink>}<button type="button" className="text-link" onClick={async()=>{await supabase.auth.signOut();setName('');setPassword('');setNotice('')}}>{t('signOut')}</button></aside><form className="native-form settings-form" onSubmit={submit}><Field label={t('displayName')} value={name} onChange={e=>setName(e.target.value)} maxLength={80} autoComplete="name"/><div className="field"><label htmlFor="account-language">{t('preferredLanguage')}</label><select id="account-language" value={locale} onChange={e=>setLocale(e.target.value as typeof locale)}>{localeOrder.map(l=><option value={l} key={l}>{localeNames[l]}</option>)}</select></div><div className="field"><label htmlFor="data-saver">{t('dataSaver')}</label><select id="data-saver" value={radio.dataSaver} onChange={e=>radio.setDataSaver(e.target.value as DataSaverMode)}><option value="auto">Auto</option><option value="on">{t('enabled')}</option><option value="off">{t('disabled')}</option></select><p className="field-help">{t('dataSaverHelp')}</p></div><button disabled={busy} className="button">{t(busy?'saving':'save')}</button>{notice&&<p role={failed?'alert':'status'} className={failed?'field-error':'form-success'}>{t(notice)}</p>}</form></div></div>
+ return <div className="container standard-page"><div className="auth-grid"><div><span className="eyebrow">CREOLE NETWORK MEDIA</span><h1>{t(mode==='signin'?'signIn':mode==='signup'?'createAccount':'passwordReset')}</h1><p>{t('signInBody')}</p><p className="auth-listen">{t('noAccountListen')} <SiteLink to="/listen">{t('listenLive')}</SiteLink></p></div><form className="native-form auth-form" onSubmit={submit}>{mode==='signup'&&<Field label={t('displayName')} value={name} onChange={e=>setName(e.target.value)} autoComplete="name" maxLength={80} required/>}<Field label={t('email')} type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" maxLength={254} required/>{mode!=='reset'&&<Field label={t('password')} type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength={mode==='signup'?8:undefined} autoComplete={mode==='signin'?'current-password':'new-password'} required/>}{notice&&<p role={failed?'alert':'status'} className={failed?'field-error':'form-success'}>{t(notice)}</p>}<button className="button" disabled={busy}>{t(busy?'loading':mode==='signin'?'signIn':mode==='signup'?'createAccount':'passwordReset')}</button><div className="auth-switches"><button type="button" onClick={()=>{setMode(mode==='signin'?'signup':'signin');setNotice('')}}>{t(mode==='signin'?'createAccount':'signIn')}</button>{mode==='signin'&&<button type="button" onClick={()=>{setMode('reset');setNotice('')}}>{t('passwordReset')}</button>}</div><p className="field-help"><SiteLink to="/privacy">{t('privacy')}</SiteLink> {'\u00b7'} <SiteLink to="/terms">{t('terms')}</SiteLink></p></form></div></div>
+}

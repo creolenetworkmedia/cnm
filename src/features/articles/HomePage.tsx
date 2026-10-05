@@ -1,0 +1,22 @@
+import {SiteLink} from '../../app/router'
+import {useLocale} from '../../shared/i18n'
+import {Brand} from '../../design/Brand'
+import {Icon} from '../../design/Icon'
+import {ArticleCard} from './ArticleCard'
+import {storyLabel,type PublicArticle,type Program} from './article.model'
+export function HomePage({articles,programs,loading,error,onRetry}:{articles:PublicArticle[];programs:Program[];loading:boolean;error:boolean;onRetry:()=>void}){
+ const {t,locale}=useLocale(),[lead,...rest]=articles
+ return <div className="home-page"><section className="front-page container" aria-busy={loading}>
+ <div className="section-label"><span>CREOLE NETWORK MEDIA</span><span>{t('radioNewsCulture')}</span></div>
+ {error&&<div className="notice error" role="alert">{t('loadError')} <button type="button" onClick={onRetry}>{t('retry')}</button></div>}
+ <div className="front-grid"><div className="front-feature">{lead?<ArticleCard article={lead} lead/>:<div className="station-feature"><div className="station-feature-mark"><Brand/><span>{t('radioNewsCulture')}</span></div><div className="station-feature-copy"><span className="eyebrow">{t('about')}</span><h1>Creole Network Media</h1><p>{t('stationNote')}</p><SiteLink to="/listen" className="text-link">{t('listenLive')}<Icon name="arrow"/></SiteLink></div></div>}</div>
+ <aside className="front-sidebar"><h2 className="sidebar-heading">{rest.length?t('latest'):t('discover')}</h2>{rest.length?rest.slice(0,3).map(article=><ArticleCard key={article.id} article={article} compact/>):<><div className="sidebar-item"><span className="index-label">01 / {t('listen')}</span><h3>{t('frontIntro')}</h3><p>{t('noAccountListen')}</p><SiteLink to="/listen" className="text-link">{t('openPlayer')}<Icon name="arrow" size={17}/></SiteLink></div><div className="sidebar-item"><span className="index-label">02 / {t('community')}</span><h3>{t('submitArticle')}</h3><p>{t('submitArticleBody')}</p><SiteLink to="/submit-story" className="text-link">{t('contribute')}<Icon name="arrow" size={17}/></SiteLink></div></>}</aside></div></section>
+ {rest.length>3&&<section className="container publication-section"><SectionTitle title={t('newsroom')} to="/news" action={t('allNews')}/><div className="stories-grid">{rest.slice(3,7).map(a=><ArticleCard article={a} key={a.id}/>)}</div></section>}
+ {articles.some(a=>a.video)&&<section className="watch-section"><div className="container"><SectionTitle title={t('watch')} to="/watch" action={t('watch')}/><div className="stories-grid">{articles.filter(a=>a.video).slice(0,3).map(a=><ArticleCard article={a} key={a.id}/>)}</div></div></section>}
+ <section className="container participation-section"><SectionTitle title={t('communityTitle')} to="/community" action={t('community')}/><div className="participation-grid">{[
+ ['music','requestSong','requestSongBody','/community?form=song'],['heart','dedication','dedicationBody','/community?form=dedication'],['file','submitArticle','submitArticleBody','/submit-story']
+ ].map(([icon,title,body,to],i)=><div className="participation-item" key={to}><div className="participation-index"><span>0{i+1}</span><Icon name={icon as 'music'|'heart'|'file'}/></div><h3><SiteLink to={to}>{t(title)}</SiteLink></h3><p>{t(body)}</p><SiteLink to={to} className="text-link" aria-label={t(title)}><Icon name="arrow"/></SiteLink></div>)}</div></section>
+ <section className="program-feature"><div className="container program-feature-inner"><div><span className="eyebrow">CNM RADIO</span><h2>{t('radioTitle')}</h2><p>{t('programsIntro')}</p><SiteLink to="/programs" className="text-link">{t('programs')}<Icon name="arrow"/></SiteLink></div><div className="program-preview">{programs.length?programs.slice(0,3).map(slot=><div key={slot.id}><strong>{slot.show?.title}</strong><span>{slot.start_time.slice(0,5)} / {slot.timezone}</span></div>):<><Brand/><p>{t('programsEmpty')}</p></>}</div></div></section>
+ <section className="container partner-section"><span className="eyebrow">{t('sponsor')}</span><div><h2>{t('partner')}</h2><p>{t('sponsorIntro')}</p></div><SiteLink to="/sponsor" className="button button-outline">{t('partner')}<Icon name="arrow"/></SiteLink></section></div>
+}
+export function SectionTitle({title,to,action}:{title:string;to?:string;action?:string}){return <div className="section-heading"><h2>{title}</h2>{to&&action&&<SiteLink to={to}>{action}<Icon name="arrow" size={17}/></SiteLink>}</div>}

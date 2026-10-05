@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && cp dist/index.html dist/404.html",
-    "preview": "vite preview"
+    "build": "tsc --noEmit && vite build && node scripts/finalize-static-build.mjs",
+    "preview": "vite preview",
+    "test:unit": "vitest run",
+    "test:browser": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "test:node": "node --experimental-strip-types --test tests/node/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.75.0",
@@ -19,6 +23,12 @@
     "@types/react-dom": "19.1.9",
     "@vitejs/plugin-react": "5.0.4",
     "typescript": "5.9.3",
-    "vite": "7.1.7"
+    "vite": "7.1.7",
+    "vitest": "4.1.11",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/jest-dom": "6.10.0",
+    "jsdom": "26.1.0",
+    "@playwright/test": "1.63.0",
+    "@axe-core/playwright": "4.13.0"
   }
 }

@@ -1,0 +1,86 @@
+name: CNM editorial v2 validation
+on:
+  push:
+    branches: [feat/cnm-editorial-v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install with npm 11
+        run: npx --yes npm@11.6.0 ci --no-fund
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Node contract tests
+        run: npm run test:node
+      - name: Production build
+        env:
+          CNM_DEPLOY_TARGET: pages
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Capture desktop and mobile
+        shell: bash
+        env:
+          CNM_DEPLOY_TARGET: pages
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4173 > /tmp/cnm-vite.log 2>&1 &
+          VITE_PID=$!
+          trap 'kill $VITE_PID || true' EXIT
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:4173/cnm/ >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/cnm/ >/dev/null
+          mkdir -p visual
+          node --input-type=module <<'JS'
+          import { chromium } from '@playwright/test'
+          const browser = await chromium.launch({headless:true})
+          const shots = [
+            ['cnm-editorial-v2-desktop.png', 1440, 1100, false],
+            ['cnm-editorial-v2-mobile.png', 390, 844, true],
+          ]
+          for (const [name,width,height,mobile] of shots) {
+            const context = await browser.newContext({
+              viewport:{width,height},
+              isMobile:mobile,
+              hasTouch:mobile,
+              deviceScaleFactor:1
+            })
+            const page = await context.newPage()
+            const errors = []
+            page.on('pageerror', error => errors.push(String(error)))
+            page.on('console', message => {
+              if (message.type() === 'error') errors.push(message.text())
+            })
+            const response = await page.goto('http://127.0.0.1:4173/cnm/', {waitUntil:'domcontentloaded', timeout:30000})
+            if (!response || !response.ok()) throw new Error('CNM preview navigation failed')
+            await page.locator('[data-cnm-design="editorial-v2"]').waitFor({state:'visible', timeout:20000})
+            await page.locator('header').waitFor({state:'visible', timeout:20000})
+            const text = (await page.locator('body').innerText()).trim()
+            if (text.length < 80) throw new Error('CNM preview rendered insufficient visible content')
+            if (errors.some(error => !/AbortError|signal is aborted/i.test(error))) {
+              throw new Error('CNM preview browser errors: '+errors.join(' | '))
+            }
+            await page.screenshot({path:'visual/'+name,fullPage:true})
+            await context.close()
+          }
+          await browser.close()
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cnm-editorial-v2-preview
+          path: |
+            visual/*.png
+            dist/
+          retention-days: 3
