@@ -57,6 +57,10 @@ type Route =
   | { page: 'admin' }
 
 const localeOrder: Locale[] = ['en', 'fr', 'ht', 'es']
+const projectBase = typeof window !== 'undefined' && window.location.hostname.endsWith('github.io') ? '/cnm' : ''
+const withBase = (path: string) => `${projectBase}${path.startsWith('/') ? path : `/${path}`}`
+const assetPath = (name: string) => withBase(`/${name.replace(/^\\//, '')}`)
+
 const dayNames: Record<Locale, string[]> = {
   en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
   fr: ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
@@ -65,7 +69,8 @@ const dayNames: Record<Locale, string[]> = {
 }
 
 function routeFromPath(): Route {
-  const path = window.location.pathname.replace(/\/+$/, '') || '/'
+  let path = window.location.pathname.replace(/\/+$/, '') || '/'
+  if (projectBase && path.startsWith(projectBase)) path = path.slice(projectBase.length) || '/'
   if (path === '/listen') return { page: 'listen' }
   if (path === '/news') return { page: 'news' }
   if (path.startsWith('/news/')) return { page: 'article', slug: decodeURIComponent(path.slice(6)) }
@@ -86,7 +91,8 @@ function useRoute() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
   const go = (path: string) => {
-    if (window.location.pathname !== path) window.history.pushState({}, '', path)
+    const nextPath = withBase(path)
+    if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setRoute(routeFromPath())
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -243,7 +249,7 @@ function SiteHeader({ locale, setLocale, route, go, isAdmin, session, t }: { loc
   return <>
     <header className="site-header">
       <div className="header-inner">
-        <button className="brand-button" onClick={() => go('/')} aria-label={t('home')}><img src="/cnm-mark.svg" alt="Creole Network Media" /></button>
+        <button className="brand-button" onClick={() => go('/')} aria-label={t('home')}><img src={assetPath('cnm-mark.svg')} alt="Creole Network Media" /></button>
         <nav className="desktop-nav" aria-label="Primary navigation">
           {links.map(([path, label]) => <button key={path} className={activePath === path ? 'nav-link active' : 'nav-link'} onClick={() => go(path)}>{label}</button>)}
         </nav>
@@ -261,7 +267,7 @@ function SiteHeader({ locale, setLocale, route, go, isAdmin, session, t }: { loc
       </div>
     </header>
     {menuOpen && <div className="mobile-drawer">
-      <div className="drawer-top"><img src="/cnm-mark.svg" alt="CNM" /><button className="icon-button" onClick={() => setMenuOpen(false)} aria-label={t('close')}><X size={26} /></button></div>
+      <div className="drawer-top"><img src={assetPath('cnm-mark.svg')} alt="CNM" /><button className="icon-button" onClick={() => setMenuOpen(false)} aria-label={t('close')}><X size={26} /></button></div>
       <nav>{links.map(([path, label]) => <button key={path} onClick={() => { go(path); setMenuOpen(false) }}>{label}</button>)}{isAdmin && <button onClick={() => { go('/admin'); setMenuOpen(false) }}>{t('admin')}</button>}<button onClick={() => { go('/account'); setMenuOpen(false) }}>{t('account')}</button></nav>
     </div>}
   </>
@@ -308,7 +314,7 @@ function LivePanel({ station, t, playing, audioState, toggleAudio }: { station: 
 function ListenPage({ locale, t, station, schedule, playing, audioState, toggleAudio }: { locale: Locale; t: (k: string) => string; station: StationConfig | null; schedule: ScheduleSlot[]; playing: boolean; audioState: string; toggleAudio: () => void }) {
   return <div className="page-wrap listen-page">
     <div className="listen-stage">
-      <div className="listen-brand"><img src="/cnm-mark-white.svg" alt="CNM" /><span className={station?.stream_enabled ? 'live-label' : 'off-label'}>{station?.stream_enabled ? t('liveNow') : t('offAir')}</span></div>
+      <div className="listen-brand"><img src={assetPath('cnm-mark-white.svg')} alt="CNM" /><span className={station?.stream_enabled ? 'live-label' : 'off-label'}>{station?.stream_enabled ? t('liveNow') : t('offAir')}</span></div>
       <div className="listen-center"><button className="listen-play" onClick={toggleAudio} disabled={!station?.stream_enabled || !station.primary_stream_url}>{playing ? <Pause size={45} fill="currentColor" /> : <Play size={48} fill="currentColor" />}</button><h1>{station?.station_name || 'Creole Network Media'}</h1><p>{station?.stream_enabled && station.primary_stream_url ? (audioState === 'loading' ? t('loadingStream') : t('radioNewsCulture')) : t('unavailable')}</p></div>
       <div className="listen-wave">{Array.from({ length: 44 }).map((_, i) => <span key={i} style={{ height: `${8 + ((i * 23) % 50)}px` }} />)}</div>
     </div>
@@ -327,7 +333,7 @@ function ArticleGrid({ articles, locale, go, full = false }: { articles: Article
   return <div className={full ? 'article-grid full' : 'article-grid'}>{articles.map((article, index) => {
     const img = getPublicMediaUrl(article.hero)
     return <article className={index === 0 && !full ? 'story-card lead' : 'story-card'} key={article.id} onClick={() => go(`/news/${encodeURIComponent(article.slug)}`)}>
-      <div className="story-image">{img ? <img src={img} alt={localized(article.hero?.alt_i18n, locale) || localized(article.title_i18n, locale)} loading="lazy" /> : <div className="story-placeholder"><img src="/cnm-mark.svg" alt="" /></div>}</div>
+      <div className="story-image">{img ? <img src={img} alt={localized(article.hero?.alt_i18n, locale) || localized(article.title_i18n, locale)} loading="lazy" /> : <div className="story-placeholder"><img src={assetPath('cnm-mark.svg')} alt="" /></div>}</div>
       <div className="story-meta"><span>{localized(article.category?.name_i18n, locale) || 'CNM'}</span><span>{fmtDate(article.published_at, locale)}</span></div>
       <h2>{localized(article.title_i18n, locale)}</h2>
       <p>{localized(article.excerpt_i18n, locale)}</p>
@@ -423,7 +429,7 @@ function AccountPage({ locale, setLocale, t, session }: { locale: Locale; setLoc
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       setMessage(error ? error.message : '')
     } else {
-      const { error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: name, preferred_language: locale }, emailRedirectTo: 'https://creolenetworkmedia.com/account' } })
+      const { error } = await supabase.auth.signUp({ email, password, options: { data: { display_name: name, preferred_language: locale }, emailRedirectTo: `${window.location.origin}${withBase('/account')}` } })
       setMessage(error ? error.message : t('checkEmail'))
     }
   }
@@ -443,9 +449,9 @@ function AdminPage({ locale, t, session, isAdmin, station, refreshContent }: { l
   const [status, setStatus] = useState('')
   const load = async () => { if (!isAdmin) return; const [a, c] = await Promise.all([getAdminArticles(), getCategories()]); setArticles(a); setCategories(c) }
   useEffect(() => { load().catch((e) => setStatus(e.message)) }, [isAdmin])
-  if (!session) return <div className="admin-shell"><div className="admin-gate"><img src="/cnm-mark.svg" alt="CNM" /><h1>{t('signInRequired')}</h1><p>{t('editorialBody')}</p><a className="primary-btn inline" href="/account">{t('signIn')}</a></div></div>
-  if (!isAdmin) return <div className="admin-shell"><div className="admin-gate"><img src="/cnm-mark.svg" alt="CNM" /><h1>{t('adminOnly')}</h1><p>{t('notAdmin')}</p></div></div>
-  return <div className="admin-shell"><aside className="admin-sidebar"><img src="/cnm-mark-white.svg" alt="CNM" /><span>EDITORIAL</span><nav><button className={tab === 'articles' ? 'active' : ''} onClick={() => setTab('articles')}><FileText size={18} /> {t('news')}</button><button className={tab === 'station' ? 'active' : ''} onClick={() => setTab('station')}><Bell size={18} /> {t('streamSettings')}</button></nav><a href="/">← {t('home')}</a></aside><div className="admin-main"><div className="admin-top"><div><div className="eyebrow">CNM</div><h1>{tab === 'articles' ? t('editorialTitle') : t('streamSettings')}</h1></div>{tab === 'articles' && <button className="primary-btn" onClick={() => setSelected(emptyArticle())}>+ {t('newArticle')}</button>}</div>{status && <div className="admin-notice">{status}</div>}{tab === 'articles' ? <><div className="admin-article-list">{articles.map((a) => <button key={a.id} onClick={() => setSelected(a)}><div><span>{localized(a.category?.name_i18n, locale) || 'CNM'}</span><strong>{localized(a.title_i18n, locale) || localized(a.title_i18n, 'en') || a.slug}</strong></div><small>{t(a.status)} · {fmtDate(a.published_at || a.updated_at, locale)}</small></button>)}</div>{selected && <ArticleEditor article={selected} categories={categories} locale={locale} t={t} session={session} close={() => setSelected(null)} onSaved={async () => { setSelected(null); await load(); await refreshContent(); setStatus(t('articleSaved')); setTimeout(() => setStatus(''), 1800) }} />}</> : <StationEditor station={station} t={t} onSaved={async () => { await refreshContent(); setStatus(t('stationSaved')); setTimeout(() => setStatus(''), 1800) }} />}</div></div>
+  if (!session) return <div className="admin-shell"><div className="admin-gate"><img src={assetPath('cnm-mark.svg')} alt="CNM" /><h1>{t('signInRequired')}</h1><p>{t('editorialBody')}</p><a className="primary-btn inline" href={withBase('/account')}>{t('signIn')}</a></div></div>
+  if (!isAdmin) return <div className="admin-shell"><div className="admin-gate"><img src={assetPath('cnm-mark.svg')} alt="CNM" /><h1>{t('adminOnly')}</h1><p>{t('notAdmin')}</p></div></div>
+  return <div className="admin-shell"><aside className="admin-sidebar"><img src={assetPath('cnm-mark-white.svg')} alt="CNM" /><span>EDITORIAL</span><nav><button className={tab === 'articles' ? 'active' : ''} onClick={() => setTab('articles')}><FileText size={18} /> {t('news')}</button><button className={tab === 'station' ? 'active' : ''} onClick={() => setTab('station')}><Bell size={18} /> {t('streamSettings')}</button></nav><a href={withBase('/')}>← {t('home')}</a></aside><div className="admin-main"><div className="admin-top"><div><div className="eyebrow">CNM</div><h1>{tab === 'articles' ? t('editorialTitle') : t('streamSettings')}</h1></div>{tab === 'articles' && <button className="primary-btn" onClick={() => setSelected(emptyArticle())}>+ {t('newArticle')}</button>}</div>{status && <div className="admin-notice">{status}</div>}{tab === 'articles' ? <><div className="admin-article-list">{articles.map((a) => <button key={a.id} onClick={() => setSelected(a)}><div><span>{localized(a.category?.name_i18n, locale) || 'CNM'}</span><strong>{localized(a.title_i18n, locale) || localized(a.title_i18n, 'en') || a.slug}</strong></div><small>{t(a.status)} · {fmtDate(a.published_at || a.updated_at, locale)}</small></button>)}</div>{selected && <ArticleEditor article={selected} categories={categories} locale={locale} t={t} session={session} close={() => setSelected(null)} onSaved={async () => { setSelected(null); await load(); await refreshContent(); setStatus(t('articleSaved')); setTimeout(() => setStatus(''), 1800) }} />}</> : <StationEditor station={station} t={t} onSaved={async () => { await refreshContent(); setStatus(t('stationSaved')); setTimeout(() => setStatus(''), 1800) }} />}</div></div>
 }
 
 function emptyArticle(): Article {
@@ -485,7 +491,7 @@ function EmptyEditorial({ text }: { text: string }) { return <div className="edi
 function LoadingLines() { return <div className="loading-lines"><span /><span /><span /></div> }
 function SchedulePreview({ schedule, locale, empty }: { schedule: ScheduleSlot[]; locale: Locale; empty: string }) { if (!schedule.length) return <EmptyEditorial text={empty} />; return <div className="schedule-preview">{schedule.slice(0, 5).map((slot) => <div key={slot.id}><span>{dayNames[locale][slot.day_of_week]}</span><time>{fmtTime(slot.start_time)}</time><strong>{slot.show?.title}</strong></div>)}</div> }
 
-function SiteFooter({ t, go }: { t: (k: string) => string; go: (p: string) => void }) { return <footer className="site-footer"><div className="footer-top"><img src="/cnm-mark-white.svg" alt="CNM" /><p>{t('radioNewsCulture')}</p></div><div className="footer-grid"><button onClick={() => go('/listen')}>{t('listen')}</button><button onClick={() => go('/news')}>{t('news')}</button><button onClick={() => go('/programs')}>{t('programs')}</button><button onClick={() => go('/community')}>{t('community')}</button><button onClick={() => go('/support')}>{t('support')}</button><button onClick={() => go('/about')}>{t('about')}</button></div><div className="footer-bottom"><span>© {new Date().getFullYear()} {t('footerLine')}</span><span>Positive Assistance, Inc.</span></div></footer> }
+function SiteFooter({ t, go }: { t: (k: string) => string; go: (p: string) => void }) { return <footer className="site-footer"><div className="footer-top"><img src={assetPath('cnm-mark-white.svg')} alt="CNM" /><p>{t('radioNewsCulture')}</p></div><div className="footer-grid"><button onClick={() => go('/listen')}>{t('listen')}</button><button onClick={() => go('/news')}>{t('news')}</button><button onClick={() => go('/programs')}>{t('programs')}</button><button onClick={() => go('/community')}>{t('community')}</button><button onClick={() => go('/support')}>{t('support')}</button><button onClick={() => go('/about')}>{t('about')}</button></div><div className="footer-bottom"><span>© {new Date().getFullYear()} {t('footerLine')}</span><span>Positive Assistance, Inc.</span></div></footer> }
 function MiniPlayer({ t, station, playing, toggleAudio }: { t: (k: string) => string; station: StationConfig | null; playing: boolean; toggleAudio: () => void }) { return <div className="mini-player"><button onClick={toggleAudio}>{playing ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" />}</button><span className="live-dot" /><strong>{station?.station_name || 'CNM'}</strong><span>{t('liveNow')}</span></div> }
 
 export default App
