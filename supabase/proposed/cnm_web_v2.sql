@@ -202,7 +202,7 @@ begin
   perform private.cnm_web_limit_v2('global','inquiry',60,3600);
   perform private.cnm_web_limit_v2(encode(sha256(convert_to(lower(p_payload->>'email'),'UTF8')),'hex'),'inquiry',6,3600);
   insert into private.cnm_web_inquiries(owner_id,name,email,category,locale,message,organization,interest,budget_range,relevant_url,policy_version)
-  values(p_actor,p_payload->>'name',p_payload->>'email',p_payload->>'category',p_payload->>'locale',p_payload->>'message',p_payload->>'organization',p_payload->>'interest',p_payload->>'budgetRange',p_payload->>'relevantUrl',p_payload->>'policyVersion) returning reference into v_reference;
+  values(p_actor,p_payload->>'name',p_payload->>'email',p_payload->>'category',p_payload->>'locale',p_payload->>'message',p_payload->>'organization',p_payload->>'interest',p_payload->>'budgetRange',p_payload->>'relevantUrl',p_payload->>'policyVersion') returning reference into v_reference;
   v_result=jsonb_build_object('stored',true,'reference',v_reference,'emailStatus','not-configured');
  elsif p_action='inquiry.list' then
   select jsonb_build_object('items',coalesce(jsonb_agg(to_jsonb(q)),'[]')) into v_result from (select id,reference,name,email,category,locale,message,organization,interest,budget_range,relevant_url,status,note,created_at,updated_at from private.cnm_web_inquiries order by created_at desc limit 100) q;return v_result;
