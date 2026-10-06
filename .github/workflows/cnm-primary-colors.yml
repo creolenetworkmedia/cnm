@@ -1,0 +1,59 @@
+name: CNM primary color verification
+on:
+  push:
+    branches: [fix/cnm-primary-colors]
+  workflow_run:
+    workflows: [Deploy CNM website]
+    branches: [main]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.event_name == 'push' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npx --yes npm@11.6.0 ci --no-fund
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run test:node
+      - name: Build branch preview
+        if: github.event_name == 'push'
+        env:
+          CNM_DEPLOY_TARGET: pages
+        run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Check branch colors and capture desktop and mobile
+        if: github.event_name == 'push'
+        env:
+          CNM_DEPLOY_TARGET: pages
+        run: |
+          npx vite preview --host 127.0.0.1 --port 4173 > /tmp/cnm-colors.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:4173/cnm/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/browser/brand-colors.mjs
+      - name: Verify the public deployed website
+        if: github.event_name == 'workflow_run'
+        env:
+          CNM_SMOKE_URL: https://creolenetworkmedia.github.io/cnm/
+          CNM_EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: node tests/browser/brand-colors.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cnm-primary-colors-${{ github.event_name }}
+          path: visual/
+          retention-days: 7
+          if-no-files-found: ignore
