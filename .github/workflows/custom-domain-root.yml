@@ -1,7 +1,8 @@
 name: CNM custom domain root verification
 on:
-  push:
-    branches: [fix/custom-domain-root-build]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
