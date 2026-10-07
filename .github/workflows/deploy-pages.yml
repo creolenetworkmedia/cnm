@@ -23,7 +23,10 @@ jobs:
         with:
           node-version: 22
       - run: npm install --no-audit --no-fund
-      - run: npm run build
+      - name: Build for custom domain
+        env:
+          CNM_DEPLOY_TARGET: domain
+        run: npm run build
       - uses: actions/configure-pages@v5
         with:
           enablement: true
